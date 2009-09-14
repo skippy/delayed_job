@@ -4,12 +4,12 @@ require 'optparse'
 
 module Delayed
   class Command
-    attr_accessor :worker_count
+    attr_accessor :worker_count, :process_name
     
     def initialize(args)
       @options = {:quiet => true}
       @worker_count = 1
-      
+      @process_name = 'delayed_job'
       opts = OptionParser.new do |opts|
         opts.banner = "Usage: #{File.basename($0)} [options] start|stop|restart|run"
 
@@ -26,6 +26,9 @@ module Delayed
         opts.on('--max-priority N', 'Maximum priority of jobs to run.') do |n|
           @options[:max_priority] = n
         end
+        opts.on('--process_name something_unique', 'Create distinct job queues which can be identified by a monitoring service') do |name|
+          @process_name = name
+        end
         opts.on('-n', '--number_of_workers=workers', "Number of unique workers to spawn") do |worker_count|
           @worker_count = worker_count.to_i rescue 1
         end
@@ -35,9 +38,9 @@ module Delayed
   
     def daemonize
       worker_count.times do |worker_index|
-        process_name = worker_count == 1 ? "delayed_job" : "delayed_job.#{worker_index}"
+        proc_name = worker_count == 1 ? process_name : "#{process_name}.#{worker_index}"
         Daemons.run_proc(process_name, :dir => "#{RAILS_ROOT}/tmp/pids", :dir_mode => :normal, :ARGV => @args) do |*args|
-          run process_name
+          run proc_name
         end
       end
     end
